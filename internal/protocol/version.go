@@ -18,6 +18,15 @@ const (
 	Version37 VersionNumber = gquicVersion0 + 3*0x100 + 0x7 + iota
 	Version38
 	Version39
+)
+
+// need a separate const block, to reset the iota to 0
+const (
+	Version41 VersionNumber = gquicVersion0 + 4*0x100 + 0x1 + iota // version 40 never existed, so don't export it
+)
+
+// non-gQUIC versions
+const (
 	VersionTLS      VersionNumber = 101
 	VersionWhatever VersionNumber = 0 // for when the version doesn't matter
 	VersionUnknown  VersionNumber = -1
@@ -26,6 +35,7 @@ const (
 // SupportedVersions lists the versions that the server supports
 // must be in sorted descending order
 var SupportedVersions = []VersionNumber{
+	Version41,
 	Version39,
 	Version38,
 	Version37,
@@ -34,6 +44,14 @@ var SupportedVersions = []VersionNumber{
 // UsesTLS says if this QUIC version uses TLS 1.3 for the handshake
 func (vn VersionNumber) UsesTLS() bool {
 	return vn == VersionTLS
+}
+
+// UsesIETFStreamFrame says if the version uses the IETF format for the STREAM frame
+func (vn VersionNumber) UsesIETFStreamFrame() bool {
+	if vn == Version37 || vn == Version38 || vn == Version39 {
+		return false
+	}
+	return true
 }
 
 func (vn VersionNumber) String() string {

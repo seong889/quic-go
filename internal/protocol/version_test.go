@@ -11,19 +11,30 @@ var _ = Describe("Version", func() {
 		Expect(Version37).To(BeEquivalentTo(0x51303337))
 		Expect(Version38).To(BeEquivalentTo(0x51303338))
 		Expect(Version39).To(BeEquivalentTo(0x51303339))
+		Expect(Version41).To(BeEquivalentTo(0x51303431))
 	})
 
 	It("says if a version supports TLS", func() {
 		Expect(Version37.UsesTLS()).To(BeFalse())
 		Expect(Version38.UsesTLS()).To(BeFalse())
 		Expect(Version39.UsesTLS()).To(BeFalse())
+		Expect(Version41.UsesTLS()).To(BeFalse())
 		Expect(VersionTLS.UsesTLS()).To(BeTrue())
+	})
+
+	It("says if a version support the IETF STREAM frame format", func() {
+		Expect(Version37.UsesIETFStreamFrame()).To(BeFalse())
+		Expect(Version38.UsesIETFStreamFrame()).To(BeFalse())
+		Expect(Version39.UsesIETFStreamFrame()).To(BeFalse())
+		Expect(Version41.UsesIETFStreamFrame()).To(BeTrue())
+		Expect(VersionTLS.UsesIETFStreamFrame()).To(BeTrue())
 	})
 
 	It("has the right string representation", func() {
 		Expect(Version37.String()).To(Equal("gQUIC 37"))
 		Expect(Version38.String()).To(Equal("gQUIC 38"))
 		Expect(Version39.String()).To(Equal("gQUIC 39"))
+		Expect(Version41.String()).To(Equal("gQUIC 41"))
 		Expect(VersionTLS.String()).To(ContainSubstring("TLS"))
 		Expect(VersionWhatever.String()).To(Equal("whatever"))
 		Expect(VersionUnknown.String()).To(Equal("unknown"))
@@ -38,6 +49,7 @@ var _ = Describe("Version", func() {
 		Expect(Version37.ToAltSvc()).To(Equal("37"))
 		Expect(Version38.ToAltSvc()).To(Equal("38"))
 		Expect(Version39.ToAltSvc()).To(Equal("39"))
+		Expect(Version41.ToAltSvc()).To(Equal("41"))
 		Expect(VersionTLS.ToAltSvc()).To(Equal("101"))
 		// check with unsupported version numbers from the wiki
 		Expect(VersionNumber(0x51303133).ToAltSvc()).To(Equal("13"))

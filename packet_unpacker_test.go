@@ -309,6 +309,7 @@ var _ = Describe("Packet unpacker", func() {
 	})
 
 	It("errors on invalid frames", func() {
+		unpacker.version = protocol.Version39
 		for b, e := range map[byte]qerr.ErrorCode{
 			0x80: qerr.InvalidStreamData,
 			0x40: qerr.InvalidAckData,
@@ -324,13 +325,24 @@ var _ = Describe("Packet unpacker", func() {
 	})
 
 	Context("unpacking STREAM frames", func() {
+		const (
+			versionGQUICStreamFrame = protocol.Version39
+			versionIETFStreamFrame  = protocol.Version41
+		)
+
+		BeforeEach(func() {
+			Expect(versionGQUICStreamFrame.UsesIETFStreamFrame()).To(BeFalse())
+			Expect(versionIETFStreamFrame.UsesIETFStreamFrame()).To(BeTrue())
+		})
+
 		It("unpacks unencrypted STREAM frames on the crypto stream", func() {
+			unpacker.version = versionGQUICStreamFrame
 			unpacker.aead.(*mockAEAD).encLevelOpen = protocol.EncryptionUnencrypted
 			f := &wire.StreamFrame{
 				StreamID: unpacker.version.CryptoStreamID(),
 				Data:     []byte("foobar"),
 			}
-			err := f.Write(buf, 0)
+			err := f.Write(buf, versionGQUICStreamFrame)
 			Expect(err).ToNot(HaveOccurred())
 			setData(buf.Bytes())
 			packet, err := unpacker.Unpack(hdrBin, hdr, data)
@@ -339,12 +351,13 @@ var _ = Describe("Packet unpacker", func() {
 		})
 
 		It("unpacks encrypted STREAM frames on the crypto stream", func() {
+			unpacker.version = versionGQUICStreamFrame
 			unpacker.aead.(*mockAEAD).encLevelOpen = protocol.EncryptionSecure
 			f := &wire.StreamFrame{
 				StreamID: unpacker.version.CryptoStreamID(),
 				Data:     []byte("foobar"),
 			}
-			err := f.Write(buf, 0)
+			err := f.Write(buf, versionGQUICStreamFrame)
 			Expect(err).ToNot(HaveOccurred())
 			setData(buf.Bytes())
 			packet, err := unpacker.Unpack(hdrBin, hdr, data)
@@ -353,16 +366,31 @@ var _ = Describe("Packet unpacker", func() {
 		})
 
 		It("does not unpack unencrypted STREAM frames on higher streams", func() {
+			unpacker.version = versionGQUICStreamFrame
 			unpacker.aead.(*mockAEAD).encLevelOpen = protocol.EncryptionUnencrypted
 			f := &wire.StreamFrame{
 				StreamID: 3,
 				Data:     []byte("foobar"),
 			}
-			err := f.Write(buf, 0)
+			err := f.Write(buf, versionGQUICStreamFrame)
 			Expect(err).ToNot(HaveOccurred())
 			setData(buf.Bytes())
 			_, err = unpacker.Unpack(hdrBin, hdr, data)
 			Expect(err).To(MatchError(qerr.Error(qerr.UnencryptedStreamData, "received unencrypted stream data on stream 3")))
+		})
+
+		It("unpacks STREAM frames in the IETF format", func() {
+			unpacker.version = versionIETFStreamFrame
+			f := &wire.StreamFrame{
+				StreamID: 1,
+				Data:     []byte("foobar"),
+			}
+			err := f.Write(buf, versionIETFStreamFrame)
+			Expect(err).ToNot(HaveOccurred())
+			setData(buf.Bytes())
+			packet, err := unpacker.Unpack(hdrBin, hdr, data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(packet.frames).To(Equal([]wire.Frame{f}))
 		})
 	})
 })

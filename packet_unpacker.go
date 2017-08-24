@@ -48,7 +48,7 @@ func (u *packetUnpacker) Unpack(headerBinary []byte, hdr *wire.Header, data []by
 		r.UnreadByte()
 
 		var frame wire.Frame
-		if typeByte&0x80 == 0x80 {
+		if (u.version.UsesIETFStreamFrame() && typeByte&0xc0 == 0xc0) || (!u.version.UsesIETFStreamFrame() && typeByte&0x80 == 0x80) {
 			frame, err = wire.ParseStreamFrame(r, u.version)
 			if err != nil {
 				err = qerr.Error(qerr.InvalidStreamData, err.Error())
