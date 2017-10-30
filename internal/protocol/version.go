@@ -54,6 +54,14 @@ func (vn VersionNumber) UsesIETFStreamFrame() bool {
 	return true
 }
 
+// UsesIETFAckFrame says if the version uses the IETF format for the ACK frame
+func (vn VersionNumber) UsesIETFAckFrame() bool {
+	if vn == Version37 || vn == Version38 || vn == Version39 {
+		return false
+	}
+	return true
+}
+
 func (vn VersionNumber) String() string {
 	switch vn {
 	case VersionWhatever:

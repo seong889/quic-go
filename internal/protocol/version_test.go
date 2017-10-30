@@ -30,6 +30,14 @@ var _ = Describe("Version", func() {
 		Expect(VersionTLS.UsesIETFStreamFrame()).To(BeTrue())
 	})
 
+	It("says if a version support the IETF ACK frame format", func() {
+		Expect(Version37.UsesIETFAckFrame()).To(BeFalse())
+		Expect(Version38.UsesIETFAckFrame()).To(BeFalse())
+		Expect(Version39.UsesIETFAckFrame()).To(BeFalse())
+		Expect(Version41.UsesIETFAckFrame()).To(BeTrue())
+		Expect(VersionTLS.UsesIETFAckFrame()).To(BeTrue())
+	})
+
 	It("has the right string representation", func() {
 		Expect(Version37.String()).To(Equal("gQUIC 37"))
 		Expect(Version38.String()).To(Equal("gQUIC 38"))

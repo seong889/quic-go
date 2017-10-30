@@ -42,19 +42,45 @@ func ParseAckFrame(r *bytes.Reader, version protocol.VersionNumber) (*AckFrame, 
 		return nil, err
 	}
 
-	hasMissingRanges := false
-	if typeByte&0x20 == 0x20 {
+	var hasMissingRanges bool
+	if (version.UsesIETFAckFrame() && typeByte&0x10 == 0x10) || (!version.UsesIETFAckFrame() && typeByte&0x20 == 0x20) {
 		hasMissingRanges = true
 	}
 
-	largestAckedLen := 2 * ((typeByte & 0x0C) >> 2)
-	if largestAckedLen == 0 {
-		largestAckedLen = 1
+	var largestAckedLen uint8
+	if version.UsesIETFAckFrame() {
+		largestAckedLen = 1 << ((typeByte & 0x0c) >> 2)
+	} else {
+		largestAckedLen = 2 * ((typeByte & 0x0c) >> 2)
+		if largestAckedLen == 0 {
+			largestAckedLen = 1
+		}
 	}
 
-	missingSequenceNumberDeltaLen := 2 * (typeByte & 0x03)
-	if missingSequenceNumberDeltaLen == 0 {
-		missingSequenceNumberDeltaLen = 1
+	var missingSequenceNumberDeltaLen uint8
+	if version.UsesIETFAckFrame() {
+		missingSequenceNumberDeltaLen = 1 << (typeByte & 0x03)
+	} else {
+		missingSequenceNumberDeltaLen = 2 * (typeByte & 0x03)
+		if missingSequenceNumberDeltaLen == 0 {
+			missingSequenceNumberDeltaLen = 1
+		}
+	}
+
+	var numAckBlocks uint8
+	if version.UsesIETFAckFrame() && hasMissingRanges {
+		numAckBlocks, err = r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var numTimestamps uint8
+	if version.UsesIETFAckFrame() {
+		numTimestamps, err = r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	largestAcked, err := utils.GetByteOrder(version).ReadUintN(r, largestAckedLen)
@@ -69,8 +95,7 @@ func ParseAckFrame(r *bytes.Reader, version protocol.VersionNumber) (*AckFrame, 
 	}
 	frame.DelayTime = time.Duration(delay) * time.Microsecond
 
-	var numAckBlocks uint8
-	if hasMissingRanges {
+	if !version.UsesIETFAckFrame() && hasMissingRanges {
 		numAckBlocks, err = r.ReadByte()
 		if err != nil {
 			return nil, err
@@ -154,13 +179,14 @@ func ParseAckFrame(r *bytes.Reader, version protocol.VersionNumber) (*AckFrame, 
 		return nil, ErrInvalidAckRanges
 	}
 
-	var numTimestamp byte
-	numTimestamp, err = r.ReadByte()
-	if err != nil {
-		return nil, err
+	if !version.UsesIETFAckFrame() {
+		numTimestamps, err = r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if numTimestamp > 0 {
+	if numTimestamps > 0 {
 		// Delta Largest acked
 		_, err = r.ReadByte()
 		if err != nil {
@@ -172,7 +198,7 @@ func ParseAckFrame(r *bytes.Reader, version protocol.VersionNumber) (*AckFrame, 
 			return nil, err
 		}
 
-		for i := 0; i < int(numTimestamp)-1; i++ {
+		for i := 0; i < int(numTimestamps)-1; i++ {
 			// Delta Largest acked
 			_, err = r.ReadByte()
 			if err != nil {
@@ -193,22 +219,67 @@ func ParseAckFrame(r *bytes.Reader, version protocol.VersionNumber) (*AckFrame, 
 func (f *AckFrame) Write(b *bytes.Buffer, version protocol.VersionNumber) error {
 	largestAckedLen := protocol.GetPacketNumberLength(f.LargestAcked)
 
-	typeByte := uint8(0x40)
-
-	if largestAckedLen != protocol.PacketNumberLen1 {
-		typeByte ^= (uint8(largestAckedLen / 2)) << 2
+	var typeByte uint8
+	if version.UsesIETFAckFrame() {
+		typeByte = uint8(0xa0)
+	} else {
+		typeByte = uint8(0x40)
 	}
 
-	missingSequenceNumberDeltaLen := f.getMissingSequenceNumberDeltaLen()
+	if largestAckedLen != protocol.PacketNumberLen1 {
+		if version.UsesIETFAckFrame() {
+			switch largestAckedLen {
+			case protocol.PacketNumberLen2:
+				typeByte ^= 0x1 << 2
+			case protocol.PacketNumberLen4:
+				typeByte ^= 0x2 << 2
+			case protocol.PacketNumberLen8:
+				typeByte ^= 0x3 << 2
+			}
+		} else {
+			typeByte ^= (uint8(largestAckedLen / 2)) << 2
+		}
+	}
+
+	// 1 bytes: 00 = 0 => 2^0
+	// 2 bytes: 01 = 1 => 2^1
+	// 4 bytes: 10 = 2 => 2^2
+	// 8 bytes: 11 = 3 => 2^3
+
+	missingSequenceNumberDeltaLen := f.getMissingSequenceNumberDeltaLen(version)
 	if missingSequenceNumberDeltaLen != protocol.PacketNumberLen1 {
-		typeByte ^= (uint8(missingSequenceNumberDeltaLen / 2))
+		if version.UsesIETFAckFrame() {
+			switch missingSequenceNumberDeltaLen {
+			case protocol.PacketNumberLen2:
+				typeByte ^= 0x1
+			case protocol.PacketNumberLen4:
+				typeByte ^= 0x2
+			case protocol.PacketNumberLen8:
+				typeByte ^= 0x3
+			}
+		} else {
+			typeByte ^= (uint8(missingSequenceNumberDeltaLen / 2))
+		}
 	}
 
 	if f.HasMissingRanges() {
-		typeByte |= 0x20
+		if version.UsesIETFAckFrame() {
+			typeByte ^= 0x10
+		} else {
+			typeByte ^= 0x20
+		}
 	}
 
 	b.WriteByte(typeByte)
+
+	numRanges := f.numWritableNackRanges()
+	if numRanges > 0xFF {
+		panic("AckFrame: Too many ACK ranges")
+	}
+
+	if version.UsesIETFAckFrame() && f.HasMissingRanges() {
+		b.WriteByte(uint8(numRanges - 1))
+	}
 
 	switch largestAckedLen {
 	case protocol.PacketNumberLen1:
@@ -219,18 +290,17 @@ func (f *AckFrame) Write(b *bytes.Buffer, version protocol.VersionNumber) error 
 		utils.GetByteOrder(version).WriteUint32(b, uint32(f.LargestAcked))
 	case protocol.PacketNumberLen6:
 		utils.GetByteOrder(version).WriteUint48(b, uint64(f.LargestAcked)&(1<<48-1))
+	case protocol.PacketNumberLen8:
+		utils.GetByteOrder(version).WriteUint64(b, uint64(f.LargestAcked))
 	}
 
-	f.DelayTime = time.Since(f.PacketReceivedTime)
-	utils.GetByteOrder(version).WriteUfloat16(b, uint64(f.DelayTime/time.Microsecond))
+	if !version.UsesIETFAckFrame() {
+		f.DelayTime = time.Since(f.PacketReceivedTime)
+		utils.GetByteOrder(version).WriteUfloat16(b, uint64(f.DelayTime/time.Microsecond))
+	}
 
-	var numRanges uint64
 	var numRangesWritten uint64
-	if f.HasMissingRanges() {
-		numRanges = f.numWritableNackRanges()
-		if numRanges > 0xFF {
-			panic("AckFrame: Too many ACK ranges")
-		}
+	if !version.UsesIETFAckFrame() && f.HasMissingRanges() {
 		b.WriteByte(uint8(numRanges - 1))
 	}
 
@@ -333,7 +403,7 @@ func (f *AckFrame) MinLength(version protocol.VersionNumber) (protocol.ByteCount
 	length := protocol.ByteCount(1 + 2 + 1) // 1 TypeByte, 2 ACK delay time, 1 Num Timestamp
 	length += protocol.ByteCount(protocol.GetPacketNumberLength(f.LargestAcked))
 
-	missingSequenceNumberDeltaLen := protocol.ByteCount(f.getMissingSequenceNumberDeltaLen())
+	missingSequenceNumberDeltaLen := protocol.ByteCount(f.getMissingSequenceNumberDeltaLen(version))
 
 	if f.HasMissingRanges() {
 		length += (1 + missingSequenceNumberDeltaLen) * protocol.ByteCount(f.numWritableNackRanges())
@@ -355,23 +425,19 @@ func (f *AckFrame) validateAckRanges() bool {
 	if len(f.AckRanges) == 0 {
 		return true
 	}
-
 	// if there are missing packets, there will always be at least 2 ACK ranges
 	if len(f.AckRanges) == 1 {
 		return false
 	}
-
 	if f.AckRanges[0].Last != f.LargestAcked {
 		return false
 	}
-
 	// check the validity of every single ACK range
 	for _, ackRange := range f.AckRanges {
 		if ackRange.First > ackRange.Last {
 			return false
 		}
 	}
-
 	// check the consistency for ACK with multiple NACK ranges
 	for i, ackRange := range f.AckRanges {
 		if i == 0 {
@@ -385,7 +451,6 @@ func (f *AckFrame) validateAckRanges() bool {
 			return false
 		}
 	}
-
 	return true
 }
 
@@ -401,25 +466,22 @@ func (f *AckFrame) numWritableNackRanges() uint64 {
 		if i == 0 {
 			continue
 		}
-
 		lastAckRange := f.AckRanges[i-1]
 		gap := lastAckRange.First - ackRange.Last - 1
 		rangeLength := 1 + uint64(gap)/0xFF
 		if uint64(gap)%0xFF == 0 {
 			rangeLength--
 		}
-
 		if numRanges+rangeLength < 0xFF {
 			numRanges += rangeLength
 		} else {
 			break
 		}
 	}
-
 	return numRanges + 1
 }
 
-func (f *AckFrame) getMissingSequenceNumberDeltaLen() protocol.PacketNumberLen {
+func (f *AckFrame) getMissingSequenceNumberDeltaLen(version protocol.VersionNumber) protocol.PacketNumberLen {
 	var maxRangeLength protocol.PacketNumber
 
 	if f.HasMissingRanges() {
@@ -443,7 +505,10 @@ func (f *AckFrame) getMissingSequenceNumberDeltaLen() protocol.PacketNumberLen {
 		return protocol.PacketNumberLen4
 	}
 
-	return protocol.PacketNumberLen6
+	if !version.UsesIETFAckFrame() {
+		return protocol.PacketNumberLen6
+	}
+	return protocol.PacketNumberLen8
 }
 
 // AcksPacket determines if this ACK frame acks a certain packet number

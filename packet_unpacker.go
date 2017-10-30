@@ -58,7 +58,7 @@ func (u *packetUnpacker) Unpack(headerBinary []byte, hdr *wire.Header, data []by
 					err = qerr.Error(qerr.UnencryptedStreamData, fmt.Sprintf("received unencrypted stream data on stream %d", streamID))
 				}
 			}
-		} else if typeByte&0xc0 == 0x40 {
+		} else if (u.version.UsesIETFAckFrame() && typeByte&0xa0 == 0xa0) || (u.version.UsesIETFAckFrame() && typeByte&0xc0 == 0x40) {
 			frame, err = wire.ParseAckFrame(r, u.version)
 			if err != nil {
 				err = qerr.Error(qerr.InvalidAckData, err.Error())

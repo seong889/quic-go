@@ -19,6 +19,8 @@ const (
 	PacketNumberLen4 PacketNumberLen = 4
 	// PacketNumberLen6 is a packet number length of 6 bytes
 	PacketNumberLen6 PacketNumberLen = 6
+	// PacketNumberLen8 is a packet number length of 8 bytes
+	PacketNumberLen8 PacketNumberLen = 8
 )
 
 // The PacketType is the Long Header Type (only used for the IETF draft header format)
