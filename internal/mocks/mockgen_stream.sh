@@ -6,10 +6,10 @@
 # Afterwards, it corrects the import paths (replaces internalpackage back to internal).
 
 TEMP_DIR=$(mktemp -d)
-mkdir -p $TEMP_DIR/src/github.com/lucas-clemente/quic-go/
+mkdir -p $TEMP_DIR/src/github.com/seong889/quic-go/
 
-cp -r $GOPATH/src/github.com/lucas-clemente/quic-go/ $TEMP_DIR/src/github.com/lucas-clemente/quic-go/
-echo "type StreamI = streamI" >> $TEMP_DIR/src/github.com/lucas-clemente/quic-go/stream.go
+cp -r $GOPATH/src/github.com/seong889/quic-go/ $TEMP_DIR/src/github.com/seong889/quic-go/
+echo "type StreamI = streamI" >> $TEMP_DIR/src/github.com/seong889/quic-go/stream.go
 
 export GOPATH="$TEMP_DIR:$GOPATH"
 

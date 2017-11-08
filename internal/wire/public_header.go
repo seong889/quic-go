@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/lucas-clemente/quic-go/internal/protocol"
-	"github.com/lucas-clemente/quic-go/internal/utils"
-	"github.com/lucas-clemente/quic-go/qerr"
+	"github.com/seong889/quic-go/internal/protocol"
+	"github.com/seong889/quic-go/internal/utils"
+	"github.com/seong889/quic-go/qerr"
 )
 
 var (
@@ -105,7 +105,7 @@ func parsePublicHeader(b *bytes.Reader, packetSentBy protocol.Perspective, versi
 	}
 
 	// TODO: activate this check once Chrome sends the correct value
-	// see https://github.com/lucas-clemente/quic-go/issues/232
+	// see https://github.com/seong889/quic-go/issues/232
 	// if publicFlagByte&0x04 > 0 {
 	// 	return nil, errors.New("diversification nonces should only be sent by servers")
 	// }
@@ -143,7 +143,7 @@ func parsePublicHeader(b *bytes.Reader, packetSentBy protocol.Perspective, versi
 	if packetSentBy == protocol.PerspectiveServer && publicFlagByte&0x04 > 0 {
 		// TODO: remove the if once the Google servers send the correct value
 		// assume that a packet doesn't contain a diversification nonce if the version flag or the reset flag is set, no matter what the public flag says
-		// see https://github.com/lucas-clemente/quic-go/issues/232
+		// see https://github.com/seong889/quic-go/issues/232
 		if !header.VersionFlag && !header.ResetFlag {
 			header.DiversificationNonce = make([]byte, 32)
 			if _, err := io.ReadFull(b, header.DiversificationNonce); err != nil {

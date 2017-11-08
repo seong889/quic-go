@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/lucas-clemente/quic-go/h2quic"
-	"github.com/lucas-clemente/quic-go/internal/utils"
+	"github.com/seong889/quic-go/h2quic"
+	"github.com/seong889/quic-go/internal/utils"
 )
 
 func main() {

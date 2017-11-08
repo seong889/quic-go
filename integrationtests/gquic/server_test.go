@@ -19,10 +19,10 @@ import (
 	"strconv"
 	"time"
 
-	quic "github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/h2quic"
-	"github.com/lucas-clemente/quic-go/integrationtests/tools/testserver"
-	"github.com/lucas-clemente/quic-go/internal/protocol"
+	quic "github.com/seong889/quic-go"
+	"github.com/seong889/quic-go/h2quic"
+	"github.com/seong889/quic-go/integrationtests/tools/testserver"
+	"github.com/seong889/quic-go/internal/protocol"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

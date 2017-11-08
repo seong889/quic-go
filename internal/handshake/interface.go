@@ -1,7 +1,7 @@
 package handshake
 
 import (
-	"github.com/lucas-clemente/quic-go/internal/protocol"
+	"github.com/seong889/quic-go/internal/protocol"
 )
 
 // Sealer seals a packet

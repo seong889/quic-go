@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/lucas-clemente/quic-go/qerr"
+	"github.com/seong889/quic-go/qerr"
 
 	"github.com/bifurcation/mint"
 	"github.com/bifurcation/mint/syntax"
-	"github.com/lucas-clemente/quic-go/internal/protocol"
+	"github.com/seong889/quic-go/internal/protocol"
 )
 
 type extensionHandlerServer struct {
